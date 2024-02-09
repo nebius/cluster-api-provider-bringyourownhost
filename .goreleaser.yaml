@@ -17,9 +17,9 @@ builds:
       - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitMajor={{ .Major }}'
       - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitMinor={{ .Minor }}'
       - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitVersion={{ .Version }}'
-        -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitCommit={{ .Commit }}'
-        -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitTreeState={{ .GitTreeState }}'
-        -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.BuildDate={{ .Date }}'
+      - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitCommit={{ .Commit }}'
+      - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.GitTreeState={{ .GitTreeState }}'
+      - -X 'github.com/vmware-tanzu/cluster-api-provider-bringyourownhost/agent/version.BuildDate={{ .Date }}'
 
 nfpms:
   - file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
@@ -42,14 +42,14 @@ changelog:
       - "^test:"
 
 release: 
-  disable: true
+  disable: true  # don't push artifacts to GH
 
 uploads:
-  - name: debregistry
+  - name: upload
     method: POST
-    target: "https://dr.nemax.nebiuscloud.net/upload/{{ .Env.DEB_REGISTRY }}?component={{ .Env.DEB_REGISTRY_COMPONENT }}&suite={{ .Env.DEB_REGISTRY_SUITE }}"
+    target: "{{ .Env.UPLOAD_URL }}"
     custom_artifact_name: true
     exts:
       - deb
     custom_headers:
-      Authorization: "Bearer {{ .Env.DEB_REGISTRY_TOKEN }}"
+      Authorization: "Bearer {{ .Env.UPLOAD_TOKEN }}"
