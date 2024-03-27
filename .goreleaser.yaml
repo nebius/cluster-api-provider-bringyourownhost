@@ -27,6 +27,7 @@ nfpms:
     description: BYOH agent
     homepage: https://github.com/nebius/cluster-api-provider-bringyourownhost
     license: Apache 2.0
+    release: test
     formats:
       - deb
     contents:
