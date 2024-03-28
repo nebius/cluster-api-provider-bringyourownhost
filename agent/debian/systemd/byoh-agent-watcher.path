@@ -1,5 +1,9 @@
 [Path]
 Unit=byoh-agent-watcher.service
+# Restart to reload from bootstrap kubeconfig to permament
 PathModified=/root/.byoh/config
+# Restart when bootstrap kubeconfig apears
+PathModified=/etc/infra-k8s/kubeconfig
+
 [Install]
 WantedBy=multi-user.target
