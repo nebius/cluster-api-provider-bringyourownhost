@@ -4,7 +4,6 @@ project_name: byoh-agent
 builds:
   # from make host-agent-binaries
   - id: byoh-agent
-    main: ./agent 
     env:
       - CGO_ENABLED=0
     goos:
