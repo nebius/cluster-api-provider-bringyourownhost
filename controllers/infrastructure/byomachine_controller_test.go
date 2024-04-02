@@ -38,6 +38,7 @@ var _ = Describe("Controllers/ByomachineController", func() {
 		k8sInstallerConfigTemplate *infrastructurev1beta1.K8sInstallerConfigTemplate
 		k8sInstallerConfig         *infrastructurev1beta1.K8sInstallerConfig
 		byoHost                    *infrastructurev1beta1.ByoHost
+		differentNamespace         *corev1.Namespace
 		testClusterVersion         = "v1.22.1_xyz"
 	)
 
@@ -631,6 +632,55 @@ var _ = Describe("Controllers/ByomachineController", func() {
 			})
 
 			It("should mark BYOHostReady as False when BYOHosts is available but label mismatch", func() {
+				_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: byoMachineLookupKey})
+				Expect(err).To(MatchError("no hosts found"))
+
+				createdByoMachine := &infrastructurev1beta1.ByoMachine{}
+				err = k8sClientUncached.Get(ctx, byoMachineLookupKey, createdByoMachine)
+				Expect(err).ToNot(HaveOccurred())
+
+				actualCondition := conditions.Get(createdByoMachine, infrastructurev1beta1.BYOHostReady)
+				Expect(*actualCondition).To(conditions.MatchCondition(clusterv1.Condition{
+					Type:     infrastructurev1beta1.BYOHostReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   infrastructurev1beta1.BYOHostsUnavailableReason,
+					Severity: clusterv1.ConditionSeverityInfo,
+				}))
+
+				// assert events
+				events := eventutils.CollectEvents(recorder.Events)
+				Expect(events).Should(ConsistOf([]string{
+					"Warning ByoHostSelectionFailed No available ByoHost",
+				}))
+			})
+		})
+
+		Context("When no BYO Hosts are available in the same namespace", func() {
+			BeforeEach(func() {
+				differentNamespace = builder.Namespace("different-namespace").Build()
+				Expect(k8sClientUncached.Create(ctx, differentNamespace)).Should(Succeed())
+				byoHost = builder.ByoHost(differentNamespace.Name, "byohost-in-different-namespace").
+					WithLabels(map[string]string{"CPUs": "4"}).
+					Build()
+				Expect(k8sClientUncached.Create(ctx, byoHost)).Should(Succeed())
+
+				byoMachine = builder.ByoMachine(defaultNamespace, "byomachine-with-label-selector").
+					WithClusterLabel(defaultClusterName).
+					WithOwnerMachine(machine).
+					WithLabelSelector(map[string]string{"CPUs": "4"}).
+					Build()
+				Expect(k8sClientUncached.Create(ctx, byoMachine)).Should(Succeed())
+
+				WaitForObjectsToBePopulatedInCache(byoHost, byoMachine)
+				byoMachineLookupKey = types.NamespacedName{Name: byoMachine.Name, Namespace: byoMachine.Namespace}
+			})
+
+			AfterEach(func() {
+				Expect(k8sClientUncached.Delete(ctx, byoHost)).ToNot(HaveOccurred())
+				Expect(k8sClientUncached.Delete(ctx, differentNamespace)).ToNot(HaveOccurred())
+			})
+
+			It("should mark BYOHostReady as False when BYOHosts is available but namespace is different", func() {
 				_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: byoMachineLookupKey})
 				Expect(err).To(MatchError("no hosts found"))
 
