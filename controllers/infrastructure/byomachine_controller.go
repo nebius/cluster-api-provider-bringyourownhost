@@ -197,7 +197,7 @@ func (r *ByoMachineReconciler) FetchAttachedByoHost(ctx context.Context, byomach
 	err := r.Client.List(
 		ctx,
 		hostsList,
-		&client.ListOptions{LabelSelector: selector},
+		&client.ListOptions{LabelSelector: selector, Namespace: byomachineNamespace},
 	)
 	if err != nil {
 		return nil, err
