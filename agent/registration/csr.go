@@ -16,6 +16,8 @@ import (
 
 	"github.com/go-logr/logr"
 	certv1 "k8s.io/api/certificates/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
@@ -118,9 +120,18 @@ func (bcsr *ByohCSR) RequestBYOHClientCert(hostname string) (string, types.UID, 
 	}
 	certTimeToExpire := bcsr.expiryDuration
 	bcsr.logger.Info("certTimeToExpire", "duration", certTimeToExpire)
+
+	csrName := fmt.Sprintf(ByohCSRNameFormat, hostname)
+	err = bcsr.bootstrapClient.CertificatesV1().CertificateSigningRequests().Delete(
+		context.TODO(), csrName, metav1.DeleteOptions{})
+
+	if err != nil && !errors.IsNotFound(err) {
+		return "", "", err
+	}
+
 	reqName, reqUID, err := csr.RequestCertificate(bcsr.bootstrapClient,
 		csrData,
-		fmt.Sprintf(ByohCSRNameFormat, hostname),
+		csrName,
 		certv1.KubeAPIServerClientSignerName,
 		&certTimeToExpire,
 		[]certv1.KeyUsage{certv1.UsageClientAuth},
