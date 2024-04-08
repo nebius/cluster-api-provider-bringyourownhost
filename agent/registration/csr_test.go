@@ -149,7 +149,7 @@ kovW9X7Ook/tTW0HyX6D6HRciA==
 
 			Expect(os.Remove(registration.TmpPrivateKey)).ShouldNot(HaveOccurred())
 		})
-		It("should create CSR if the private key got changed", func() {
+		It("should fail creating CSR if the private key got changed", func() {
 			byohCSR, err := builder.CertificateSigningRequest(
 				fmt.Sprintf(registration.ByohCSRNameFormat, hostName),
 				fmt.Sprintf(registration.ByohCSRCNFormat, hostName),
@@ -160,20 +160,8 @@ kovW9X7Ook/tTW0HyX6D6HRciA==
 			CSRRegistrar, err := registration.NewByohCSR(cfg, klogr.New(), certExpiryDuration)
 			Expect(err).ShouldNot(HaveOccurred())
 			_, _, err = CSRRegistrar.RequestBYOHClientCert(hostName)
-			Expect(err).NotTo(HaveOccurred())
-			ByohCSR, err := k8sClientSet.CertificatesV1().CertificateSigningRequests().Get(ctx, fmt.Sprintf(registration.ByohCSRNameFormat, hostName), metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			// Validate k8s CSR resource
-			Expect(ByohCSR.Spec.SignerName).Should(Equal(certv1.KubeAPIServerClientSignerName))
-			Expect(ByohCSR.Spec.Usages).Should(Equal([]certv1.KeyUsage{certv1.UsageClientAuth}))
-			Expect(*ByohCSR.Spec.ExpirationSeconds).Should(Equal(int32((time.Hour * 24).Seconds())))
-			// Validate Certificate Request
-			pemData, _ := pem.Decode(ByohCSR.Spec.Request)
-			Expect(pemData).ToNot(Equal(nil))
-			csr, err := x509.ParseCertificateRequest(pemData.Bytes)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(csr.Subject.CommonName).To(Equal(fmt.Sprintf(registration.ByohCSRCNFormat, hostName)))
-			Expect(csr.Subject.Organization[0]).To(Equal("byoh:hosts"))
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("retrieved csr is not compatible"))
 
 			Expect(os.Remove(registration.TmpPrivateKey)).ShouldNot(HaveOccurred())
 		})
