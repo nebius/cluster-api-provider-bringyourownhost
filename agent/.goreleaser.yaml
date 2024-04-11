@@ -32,6 +32,9 @@ nfpms:
       - src: debian/systemd
         dst: /etc/systemd/system/
         type: tree
+      - src: debian/scripts
+        dst: /opt/byoh-agent/
+        type: tree
 
 changelog:
   sort: asc

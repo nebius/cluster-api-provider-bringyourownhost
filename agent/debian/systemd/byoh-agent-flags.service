@@ -1,8 +1,9 @@
 [Unit]
-Description=byoh-agent restarter
+Description=Prepares env with flags for byoh-agent service
 After=network.target
 
 [Service]
+RemainAfterExit=yes
 Type=oneshot
 # Ignore failure of restart to allow path unit to trigger multiple times
-ExecStart=-/usr/bin/systemctl restart byoh-agent.service
+ExecStart=-/opt/byoh-agent/byoh-agent-flags.py

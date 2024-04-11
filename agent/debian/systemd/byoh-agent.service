@@ -1,8 +1,10 @@
 [Unit]
 Description=byoh-agent service
 After=network.target
+After=byoh-agent-flags.service
 StartLimitIntervalSec=60
 StartLimitBurst=5
+
 [Service]
 Type=simple
 WorkingDirectory=/usr/bin
@@ -12,5 +14,6 @@ User=root
 Group=root
 Restart=on-failure
 RestartSec=5
+
 [Install]
 WantedBy=multi-user.target
