@@ -15,16 +15,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+)
+
+var (
+	k8sClient k8sclient.Client
 )
 
 var _ = Describe("ByohostWebhook/Unit", func() {
 	schema := runtime.NewScheme()
 	err := AddToScheme(schema)
 	Expect(err).NotTo(HaveOccurred())
+	err = clusterv1.AddToScheme(schema)
+	Expect(err).NotTo(HaveOccurred())
+	k8sClient = fake.NewClientBuilder().WithScheme(schema).Build()
+	Expect(k8sClient).NotTo(BeNil())
 	decoder, _ := admission.NewDecoder(schema)
 	v := &ByoHostValidator{
 		decoder: decoder,
+		Client:  k8sClient,
 	}
 	Context("When ByoHost gets a create request", func() {
 		var (
@@ -85,6 +97,37 @@ var _ = Describe("ByohostWebhook/Unit", func() {
 			}
 			resp := v.Handle(ctx, admission.Request{AdmissionRequest: admissionRequest})
 			Expect(resp.AdmissionResponse.Allowed).To(Equal(true))
+		})
+		It("Should allow request from invalid user when the cluster is paused", func() {
+			clusterName := "cluster1"
+			cluster := &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: "default",
+				},
+				Spec: clusterv1.ClusterSpec{
+					Paused: true,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+
+			byoHost.Labels = map[string]string{
+				ClusterLabel: clusterName,
+			}
+			byoHostRaw, err = json.Marshal(byoHost)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			admissionRequest := admissionv1.AdmissionRequest{
+				Operation: admissionv1.Create,
+				UserInfo:  v1.UserInfo{Username: "unauthorized-user"},
+				Object: runtime.RawExtension{
+					Raw:    byoHostRaw,
+					Object: byoHost,
+				},
+			}
+			resp := v.Handle(ctx, admission.Request{AdmissionRequest: admissionRequest})
+			Expect(resp.AdmissionResponse.Allowed).To(Equal(true))
+			Expect(k8sClient.Delete(ctx, cluster)).To(BeNil())
 		})
 	})
 

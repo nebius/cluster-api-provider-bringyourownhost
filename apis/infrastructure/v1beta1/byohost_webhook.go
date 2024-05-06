@@ -10,6 +10,9 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/admission/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -18,7 +21,7 @@ import (
 // +k8s:deepcopy-gen=false
 // ByoHostValidator validates ByoHosts
 type ByoHostValidator struct {
-	//	Client  client.Client
+	Client  client.Client
 	decoder *admission.Decoder
 }
 
@@ -32,7 +35,7 @@ func (v *ByoHostValidator) Handle(ctx context.Context, req admission.Request) ad
 
 	switch req.Operation {
 	case v1.Create, v1.Update:
-		response = v.handleCreateUpdate(&req)
+		response = v.handleCreateUpdate(ctx, &req)
 	case v1.Delete:
 		response = v.handleDelete(&req)
 	default:
@@ -41,7 +44,8 @@ func (v *ByoHostValidator) Handle(ctx context.Context, req admission.Request) ad
 	return response
 }
 
-func (v *ByoHostValidator) handleCreateUpdate(req *admission.Request) admission.Response {
+func (v *ByoHostValidator) handleCreateUpdate(ctx context.Context, req *admission.Request) admission.Response {
+	log := logf.FromContext(ctx)
 	byoHost := &ByoHost{}
 	err := v.decoder.Decode(*req, byoHost)
 	if err != nil {
@@ -52,6 +56,20 @@ func (v *ByoHostValidator) handleCreateUpdate(req *admission.Request) admission.
 	if userName == managerServiceAccount && req.Operation == v1.Update {
 		return admission.Allowed("")
 	}
+
+	clusterName, ok := byoHost.Labels[ClusterLabel]
+	if ok {
+		cluster := &clusterv1.Cluster{}
+		err := v.Client.Get(ctx, client.ObjectKey{Name: clusterName, Namespace: byoHost.Namespace}, cluster)
+		if err == nil && cluster.Spec.Paused {
+			// Allow ByoHost creation/update when the cluster is paused
+			// for clusterctl move to be able to move ByoHost object
+			return admission.Allowed("")
+		} else {
+			log.Error(err, "failed to get cluster, skipping for other checks", "cluster", clusterName)
+		}
+	}
+
 	substrs := strings.Split(userName, ":")
 	if len(substrs) < 3 { //nolint: gomnd
 		return admission.Denied(fmt.Sprintf("%s is not a valid agent username", userName))

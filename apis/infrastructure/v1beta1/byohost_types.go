@@ -20,6 +20,8 @@ const (
 	AttachedByoMachineLabel = "byoh.infrastructure.cluster.x-k8s.io/byomachine-name"
 	// BundleLookupBaseRegistryAnnotation annotation used to store the base registry for the bundle lookup
 	BundleLookupBaseRegistryAnnotation = "byoh.infrastructure.cluster.x-k8s.io/bundle-registry"
+	// ClusterLabel label used to mark a cluster this ByoHost is associated with
+	ClusterLabel = "byoh.infrastructure.cluster.x-k8s.io/cluster"
 )
 
 // ByoHostSpec defines the desired state of ByoHost
