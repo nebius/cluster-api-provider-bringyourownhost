@@ -524,6 +524,18 @@ func (r *ByoMachineReconciler) attachByoHost(ctx context.Context, machineScope *
 	// TODO- Needs smarter logic
 	host := hostsList.Items[0]
 
+	// if machine has providerID, then use that to find the host
+	if machineScope.Machine.Spec.ProviderID != nil {
+		parts := strings.Split(strings.TrimPrefix(*machineScope.Machine.Spec.ProviderID, ProviderIDPrefix), "/")
+		if len(parts) == 2 {
+			for _, candidateHost := range hostsList.Items {
+				if candidateHost.Name == parts[0] {
+					host = candidateHost
+				}
+			}
+		}
+	}
+
 	byohostHelper, err := patch.NewHelper(&host, r.Client)
 	if err != nil {
 		logger.Error(err, "Creating patch helper failed")
